@@ -1,9 +1,14 @@
+# ============================================
+# VOICI LE CODE CORRIGÉ - Copiez TOUT depuis ici :
+# ============================================
+
 import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from scipy.optimize import linprog
 import warnings
+import datetime
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -45,6 +50,19 @@ class FuzzyBWM_Solver:
             '7': FuzzyTriangular(6, 7, 8),      # Très fort
             '8': FuzzyTriangular(7, 8, 9),      # Très fort+
             '9': FuzzyTriangular(8, 9, 9)       # Extrême
+        }
+        
+        # Dictionnaire pour les labels
+        self.scale_labels = {
+            '1': 'Égal',
+            '2': 'Faible', 
+            '3': 'Modéré',
+            '4': 'Modéré+',
+            '5': 'Fort',
+            '6': 'Fort+',
+            '7': 'Très fort',
+            '8': 'Très fort+',
+            '9': 'Extrême'
         }
     
     def add_criteria(self, criteria_list):
@@ -338,6 +356,12 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # Initialisation du solveur
+    if 'solver' not in st.session_state:
+        st.session_state.solver = FuzzyBWM_Solver()
+    
+    solver = st.session_state.solver
+    
     # Sidebar avec échelle floue
     with st.sidebar:
         st.markdown("### 📊 Échelle Floue de Saaty")
@@ -384,12 +408,6 @@ def main():
         "📊 3. Résultats et Cohérence", 
         "💾 4. Export des Résultats"
     ])
-    
-    # Initialisation du solveur
-    if 'solver' not in st.session_state:
-        st.session_state.solver = FuzzyBWM_Solver()
-    
-    solver = st.session_state.solver
     
     # ============================================
     # TAB 1: DÉFINITION DES CRITÈRES PERSONNALISÉS
@@ -585,30 +603,23 @@ def main():
             st.markdown("*Combien le MEILLEUR est-il plus important?*")
             
             BO_comparisons = []
-            comparison_values = []
             
             for i, criterion in enumerate(solver.criteria):
                 if criterion == solver.best_criterion:
                     BO_comparisons.append(solver.fuzzy_scales['1'])
-                    comparison_values.append('1')
                     continue
                 
-                # Widget de sélection avec explication
+                # Widget de sélection avec explication - CORRIGÉ
                 comparison = st.selectbox(
                     f"{criterion}:",
-                    list(solver.fuzzy_scales.keys()),
-                    format_func=lambda x: f"{x} - {{
-                        '1': 'Égal', '2': 'Faible', '3': 'Modéré', 
-                        '4': 'Modéré+', '5': 'Fort', '6': 'Fort+', 
-                        '7': 'Très fort', '8': 'Très fort+', '9': 'Extrême'
-                    }}[x]",
-                    key=f"BO_{criterion}",
+                    options=list(solver.fuzzy_scales.keys()),
+                    format_func=lambda x: f"{x} - {solver.scale_labels[x]}",
+                    key=f"BO_{criterion}_{i}",
                     index=2  # Par défaut à "Modéré"
                 )
                 
                 fuzzy_val = solver.fuzzy_scales[comparison]
                 BO_comparisons.append(fuzzy_val)
-                comparison_values.append(comparison)
                 
                 # Affichage du nombre flou
                 st.caption(f"Nombre flou: {fuzzy_val}")
@@ -625,15 +636,12 @@ def main():
                     OW_comparisons.append(solver.fuzzy_scales['1'])
                     continue
                 
+                # Widget de sélection - CORRIGÉ
                 comparison = st.selectbox(
                     f"{criterion}:",
-                    list(solver.fuzzy_scales.keys()),
-                    format_func=lambda x: f"{x} - {{
-                        '1': 'Égal', '2': 'Faible', '3': 'Modéré', 
-                        '4': 'Modéré+', '5': 'Fort', '6': 'Fort+', 
-                        '7': 'Très fort', '8': 'Très fort+', '9': 'Extrême'
-                    }}[x]",
-                    key=f"OW_{criterion}",
+                    options=list(solver.fuzzy_scales.keys()),
+                    format_func=lambda x: f"{x} - {solver.scale_labels[x]}",
+                    key=f"OW_{criterion}_{i}",
                     index=2
                 )
                 
@@ -886,7 +894,7 @@ def main():
             
             elif export_format == "📝 Rapport HTML":
                 # Génération d'un rapport HTML complet
-                import datetime
+                current_date = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
                 
                 report_html = f"""
                 <html>
@@ -908,7 +916,7 @@ def main():
                     <div class="header">
                         <h1>Rapport d'Analyse Fuzzy BWM</h1>
                         <h3>Production d'Hydrogène Vert - Maroc</h3>
-                        <p>Date: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+                        <p>Date: {current_date}</p>
                     </div>
                     
                     <div class="section">
@@ -932,8 +940,8 @@ def main():
                             </tr>
                 """
                 
-                for i, (crit, w) in enumerate(sorted(zip(solver.criteria, weights), 
-                                                   key=lambda x: x[1], reverse=True)):
+                sorted_crit_weights = sorted(zip(solver.criteria, weights), key=lambda x: x[1], reverse=True)
+                for i, (crit, w) in enumerate(sorted_crit_weights):
                     is_best = "🏆" if crit == solver.best_criterion else ""
                     is_worst = "⚠️" if crit == solver.worst_criterion else ""
                     report_html += f"""
